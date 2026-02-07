@@ -18,14 +18,18 @@ const PORT = process.env.PORT || 3001
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
-    credentials: true
+    origin: '*',  // Allow all origins in development
+    credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 200,
+    preflightContinue: false
 }))
 app.use(express.json())
 
 // Request logging
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} | ${req.method} ${req.path}`)
+    console.log(`${new Date().toISOString()} | ${req.method} ${req.path} | Origin: ${req.get('origin') || 'none'}`)
     next()
 })
 
@@ -36,7 +40,8 @@ app.get('/health', (req, res) => {
         service: 'ClimateCredit API',
         version: '2.0.0',
         features: ['7-dimension risk scoring', 'AI conversation extraction', 'Global location support'],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        cors: 'enabled'
     })
 })
 

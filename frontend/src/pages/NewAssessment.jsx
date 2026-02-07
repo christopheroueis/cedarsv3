@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { assessmentsAPI } from '../services/api'
+import { assessmentsAPI, aiAPI } from '../services/api'
 import {
     MapPin, DollarSign, Wheat, User, FileCheck,
     ChevronDown, Navigation, Loader2, AlertCircle, Mic, MicOff, Square,
@@ -11,9 +11,6 @@ import ProgressBar from '../components/ProgressBar'
 import LocationDetection from '../components/LocationDetection'
 import LoadingAnimation from '../components/LoadingAnimation'
 import { formatLocationForBackend } from '../services/locationService'
-
-// API base URL
-const API_BASE = 'http://localhost:3001'
 
 export default function NewAssessment() {
     const { user, mfi, logout } = useAuth()
@@ -152,13 +149,7 @@ export default function NewAssessment() {
         setExtractionError('')
 
         try {
-            const response = await fetch(`${API_BASE}/api/v2/ai/extract`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transcript })
-            })
-
-            const result = await response.json()
+            const result = await aiAPI.extractFromTranscript(transcript)
 
             if (result.success) {
                 setExtractedData(result.extracted)

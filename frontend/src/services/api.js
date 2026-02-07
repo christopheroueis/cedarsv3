@@ -80,6 +80,11 @@ export const assessmentsAPI = {
         return response.data
     },
 
+    analyzeAssessment: async (id, data) => {
+        const response = await api.post(`/api/assessments/${id}/analyze`, data)
+        return response.data 
+    },
+
     recordDecision: async (id, decision, notes) => {
         const response = await api.patch(`/api/assessments/${id}/decision`, { decision, notes })
         return response.data
@@ -126,6 +131,14 @@ export const healthCheck = async () => {
         return response.data
     } catch {
         return { status: 'offline' }
+    }
+}
+
+// AI/Extraction API
+export const aiAPI = {
+    extractFromTranscript: async (transcript) => {
+        const response = await api.post('/api/v2/ai/extract', { transcript })
+        return response.data
     }
 }
 

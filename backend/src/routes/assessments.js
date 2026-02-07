@@ -2,6 +2,7 @@ import express from 'express'
 import { authenticateToken } from '../middleware/auth.js'
 import { demoData, isDemoMode } from '../config/database.js'
 import climateService from '../services/climateService.js'
+import { analyzeLoanApplication } from '../services/aiService.js'
 
 const router = express.Router()
 
@@ -210,5 +211,158 @@ router.patch('/:id/decision', authenticateToken, (req, res) => {
 
     res.json({ success: true, assessment })
 })
+
+// POST /api/assessments/:id/analyze - Get AI analysis for an assessment
+router.post('/:id/analyze', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params
+        
+        // Find the assessment
+        const assessment = demoData.assessments.find(a => a.id === id)
+
+        if (!assessment) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: 'Assessment not found'
+            })
+        }
+
+        // Check access (same MFI)
+        if (assessment.mfiId !== req.user.mfiSlug) {
+            return res.status(403).json({
+                error: 'Access denied',
+                message: 'You do not have access to this assessment'
+            })
+        }
+
+        // Prepare data for AI analysis
+        const applicationData = {
+            formData: {
+                data: {
+                    clientName: req.body.clientName || 'Borrower',
+                    clientAge: assessment.clientInfo.age,
+                    projectType: assessment.loanDetails.purpose,
+                    cropType: assessment.loanDetails.cropType,
+                    loanAmount: assessment.loanDetails.amount,
+                    loanPurpose: assessment.loanDetails.purpose,
+                    loanTerm: req.body.loanTerm || null,
+                    loanType: req.body.loanType || null,
+                    existingLoans: assessment.clientInfo.existingLoans,
+                    repaymentHistory: assessment.clientInfo.repaymentHistory,
+                    monthlyIncome: req.body.monthlyIncome || null,
+                    collateralType: req.body.collateralType || null,
+                    businessExperience: req.body.businessExperience || null,
+                    landOwnership: req.body.landOwnership || null,
+                    irrigationAccess: req.body.irrigationAccess || null,
+                    insuranceStatus: req.body.insuranceStatus || null
+                },
+                confidence: {
+                    clientName: 'high',
+                    clientAge: assessment.clientInfo.age ? 'high' : 'low',
+                    projectType: 'high',
+                    cropType: assessment.loanDetails.cropType ? 'high' : 'low',
+                    loanAmount: 'high',
+                    loanPurpose: 'high',
+                    loanTerm: req.body.loanTerm ? 'high' : 'low',
+                    loanType: req.body.loanType ? 'medium' : 'low',
+                    existingLoans: assessment.clientInfo.existingLoans !== null ? 'high' : 'low',
+                    repaymentHistory: assessment.clientInfo.repaymentHistory !== null ? 'high' : 'low',
+                    monthlyIncome: req.body.monthlyIncome ? 'high' : 'low',
+                    collateralType: req.body.collateralType ? 'high' : 'low',
+                    businessExperience: req.body.businessExperience ? 'medium' : 'low',
+                    landOwnership: req.body.landOwnership ? 'medium' : 'low',
+                    irrigationAccess: req.body.irrigationAccess ? 'medium' : 'low',
+                    insuranceStatus: req.body.insuranceStatus ? 'high' : 'low'
+                }
+            },
+            mlPrediction: {
+                climate_risk_score: assessment.results.climateRiskScore,
+                default_probability: assessment.results.defaultProbability,
+                risk_factors: assessment.results.riskFactors
+                    ? Object.keys(assessment.results.riskFactors).map(type => ({
+                        label: type.charAt(0).toUpperCase() + type.slice(1),
+                        type,
+                        value: assessment.results.riskFactors[type].value,
+                        weight: assessment.results.riskFactors[type].weight
+                      }))
+                    : [],
+                recommendation: assessment.recommendation.type
+            },
+            riskScores: {
+                climate: assessment.results.climateRiskScore,
+                climateDetails: {
+                    threats: assessment.climateData.risks 
+                        ? Object.keys(assessment.climateData.risks).map(type => ({
+                            type,
+                            value: assessment.climateData.risks[type]
+                          }))
+                        : [],
+                    recentEvents: 'Climate risk assessment completed',
+                    seasonalFactors: assessment.results.seasonalMultiplier > 1 
+                        ? 'Currently in high-risk season' 
+                        : 'Standard seasonal conditions'
+                },
+                conflict: req.body.conflictScore || 0,
+                conflictDetails: {
+                    stabilityLevel: req.body.conflictLevel || 'Not assessed',
+                    recentIncidents: req.body.conflictIncidents || 'No data available',
+                    trend: req.body.conflictTrend || 'Stable'
+                },
+                economic: req.body.economicScore || 0,
+                economicDetails: {
+                    povertyRate: req.body.povertyRate || 'N/A',
+                    gdpPerCapita: req.body.gdpPerCapita || 'N/A',
+                    outlook: req.body.economicOutlook || 'Not assessed'
+                },
+                composite: Math.round(
+                    (assessment.results.climateRiskScore + 
+                     (req.body.conflictScore || 0) + 
+                     (req.body.economicScore || 0)) / 3
+                )
+            },
+            location: {
+                region: assessment.location.name,
+                country: assessment.location.country,
+                latitude: assessment.location.latitude,
+                longitude: assessment.location.longitude
+            }
+        } 
+
+        // Call AI analysis service
+        const analysisResult = await analyzeLoanApplication(applicationData)
+        console.log("AI analysis result:\n", analysisResult)
+
+        if (!analysisResult.success) {
+            return res.status(500).json({
+                error: 'Analysis failed',
+                message: analysisResult.error
+            })
+        }
+
+        // Store analysis in assessment
+        const assessmentIndex = demoData.assessments.findIndex(a => a.id === id)
+        demoData.assessments[assessmentIndex].aiAnalysis = {
+            recommendation: analysisResult.analysis,
+            provider: analysisResult.provider,
+            generatedAt: analysisResult.timestamp,
+            generatedBy: req.user.name
+        }
+
+        res.json({
+            success: true,
+            analysis: analysisResult.analysis,
+            provider: analysisResult.provider,
+            timestamp: analysisResult.timestamp
+        })
+
+    } catch (error) {
+        console.error('AI analysis error:', error)
+        res.status(500).json({
+            error: 'Analysis failed',
+            message: error.message || 'An error occurred during AI analysis'
+        })
+    }
+})
+
 
 export default router

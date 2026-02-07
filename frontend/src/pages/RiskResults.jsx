@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { assessmentsAPI } from '../services/api'
 import { motion } from 'framer-motion'
 import {
   CheckCircle,
@@ -14,7 +15,9 @@ import {
   MapPin,
   DollarSign,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Zap,
+  Loader
 } from 'lucide-react'
 
 function RiskGauge({ score }) {
@@ -187,6 +190,9 @@ export default function RiskResults() {
   const [assessment, setAssessment] = useState(null)
   const [loading, setLoading] = useState(true)
   const [expandAnalysis, setExpandAnalysis] = useState(false)
+  const [aiAnalysis, setAiAnalysis] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState(null)
 
   useEffect(() => {
     const data = sessionStorage.getItem(`assessment_${assessmentId}`)
@@ -248,6 +254,38 @@ export default function RiskResults() {
     }
     setLoading(false)
   }, [assessmentId])
+
+  const generateAiAnalysis = async () => {
+    try {
+      setAiLoading(true)
+      setAiError(null)
+      const result = await assessmentsAPI.analyzeAssessment(assessmentId, {
+        clientName: assessment.clientName || 'Borrower',
+        loanTerm: assessment.loanTerm || null,
+        loanType: assessment.loanType || null,
+        monthlyIncome: assessment.monthlyIncome || null,
+        collateralType: assessment.collateralType || null,
+        businessExperience: assessment.businessExperience || null,
+        landOwnership: assessment.landOwnership || null,
+        irrigationAccess: assessment.irrigationAccess || null,
+        insuranceStatus: assessment.insuranceStatus || null,
+        conflictScore: assessment.conflictScore || 0,
+        conflictLevel: assessment.conflictLevel || 'Not assessed',
+        conflictIncidents: assessment.conflictIncidents || 'No data available',
+        conflictTrend: assessment.conflictTrend || 'Stable',
+        economicScore: assessment.economicScore || 0,
+        povertyRate: assessment.povertyRate || 'N/A',
+        gdpPerCapita: assessment.gdpPerCapita || 'N/A',
+        economicOutlook: assessment.economicOutlook || 'Not assessed'
+      })
+      setAiAnalysis(result.analysis)
+    } catch (err) {
+      console.error('Failed to generate AI analysis:', err)
+      setAiError(err.response?.data?.message || 'Failed to generate analysis. Please try again.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -379,6 +417,46 @@ export default function RiskResults() {
                     </li>
                   ))}
                 </ul>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5" />
+                    AI Loan Officer Analysis
+                  </h4>
+                  {!aiAnalysis && !aiError && (
+                    <button
+                      onClick={generateAiAnalysis}
+                      disabled={aiLoading}
+                      className="text-xs px-2 py-1 rounded bg-slate-700/50 hover:bg-slate-600/50 disabled:opacity-50 text-slate-300 transition-colors flex items-center gap-1"
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader className="w-3 h-3 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate'
+                      )}
+                    </button>
+                  )}
+                </div>
+                {aiLoading && (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader className="w-4 h-4 animate-spin text-slate-400" />
+                    <span className="text-sm text-slate-400 ml-2">Analyzing loan application...</span>
+                  </div>
+                )}
+                {aiError && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+                    <p className="text-sm text-red-400">{aiError}</p>
+                  </div>
+                )}
+                {aiAnalysis && (
+                  <div className="bg-slate-800/40 border border-slate-700/50 rounded p-3 text-sm text-slate-300 space-y-3 whitespace-pre-wrap">
+                    {aiAnalysis}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
