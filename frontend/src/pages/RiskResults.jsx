@@ -152,6 +152,142 @@ const recDetails = {
   ]
 }
 
+function AiAnalysisDisplay({ analysis }) {
+  const sections = {
+    decision: null,
+    weather: null,
+    conditions: null,
+    outlook: null
+  }
+
+  // Parse sections from the markdown-style response
+  const lines = analysis.split('\n')
+  let currentSection = null
+  let currentContent = []
+
+  lines.forEach(line => {
+    if (line.includes('### 1. DECISION')) {
+      currentSection = 'decision'
+      currentContent = []
+    } else if (line.includes('### 2. WEATHER')) {
+      sections.decision = currentContent.join('\n').trim()
+      currentSection = 'weather'
+      currentContent = []
+    } else if (line.includes('### 3. REQUIRED CONDITIONS')) {
+      sections.weather = currentContent.join('\n').trim()
+      currentSection = 'conditions'
+      currentContent = []
+    } else if (line.includes('### 4. ADJUSTED RISK')) {
+      sections.conditions = currentContent.join('\n').trim()
+      currentSection = 'outlook'
+      currentContent = []
+    } else if (currentSection && line.trim()) {
+      currentContent.push(line)
+    }
+  })
+  if (currentSection) {
+    sections[currentSection] = currentContent.join('\n').trim()
+  }
+
+  const getDecisionColor = (text) => {
+    if (text?.includes('APPROVE')) return 'text-[#10B981]'
+    if (text?.includes('DEFER')) return 'text-[#DC2626]'
+    return 'text-[#F59E0B]'
+  }
+
+  const renderSection = (title, content, icon) => {
+    if (!content) return null
+    const Icon = icon
+    const lines = content.split('\n').filter(l => l.trim())
+    
+    return (
+      <div key={title}>
+        <h5 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2">
+          {Icon && <Icon className="w-3.5 h-3.5" />}
+          {title}
+        </h5>
+        <div className="space-y-1.5 text-sm">
+          {lines.map((line, i) => {
+            const content = line.replace(/^[\*\-\•]+\s*/, '').trim()
+            const isBold = line.includes('**')
+            const cleanContent = content.replace(/\*\*/g, '')
+            
+            return (
+              <p key={i} className={`text-slate-300 ${isBold ? 'font-semibold' : ''}`}>
+                {cleanContent}
+              </p>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.decision && (
+        <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-3">
+          <h5 className="text-xs font-semibold text-slate-300 mb-2">Decision</h5>
+          <p className={`text-lg font-bold ${getDecisionColor(sections.decision)}`}>
+            {sections.decision.split('\n')[0].replace(/^[*\-]+\s*/, '')}
+          </p>
+        </div>
+      )}
+      
+      {sections.weather && renderSection('Weather & Risk Context', sections.weather, AlertTriangle)}
+      
+      {sections.conditions && (
+        <div>
+          <h5 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5" />
+            Required Conditions
+          </h5>
+          <ul className="space-y-2">
+            {sections.conditions.split('\n')
+              .filter(l => l.trim())
+              .map((line, i) => {
+                const content = line.replace(/^[\*\-\•]+\s*/, '').trim()
+                return (
+                  <li key={i} className="flex gap-2 text-sm text-slate-300">
+                    <span className="text-[#14B8A6] font-bold">✓</span>
+                    <span>{content}</span>
+                  </li>
+                )
+              })}
+          </ul>
+        </div>
+      )}
+      
+      {sections.outlook && (
+        <div className="bg-slate-700/20 border border-slate-600/30 rounded-lg p-3 space-y-2">
+          <h5 className="text-xs font-semibold text-slate-300 flex items-center gap-2">
+            <TrendingDown className="w-3.5 h-3.5" />
+            Adjusted Risk Outlook
+          </h5>
+          {sections.outlook.split('\n')
+            .filter(l => l.trim())
+            .map((line, i) => {
+              const content = line.replace(/^[\*\-\•]+\s*/, '').trim()
+              const isMetric = content.includes(':')
+              return (
+                <div key={i} className={`text-sm ${isMetric ? 'flex justify-between' : ''}`}>
+                  {isMetric ? (
+                    <>
+                      <span className="text-slate-400">{content.split(':')[0]}</span>
+                      <span className="font-semibold text-slate-200">{content.split(':')[1]}</span>
+                    </>
+                  ) : (
+                    <p className="text-slate-300">{content}</p>
+                  )}
+                </div>
+              )
+            })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ClimateFactors({ factors }) {
   const factorIcons = {
     flood: { icon: Droplets, color: 'text-[#0EA5E9]' },
@@ -315,151 +451,151 @@ export default function RiskResults() {
   return (
     <div className="min-h-screen pb-28">
       <main className="px-4 py-6 space-y-6 max-w-lg mx-auto">
-        {/* Hero recommendation */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className={`card-cedar ${config.heroClass} py-6`}
-        >
-          <div className="flex items-start gap-3">
-            <Icon className={`w-8 h-8 ${config.iconColor} shrink-0`} />
-            <div>
-              <p className="text-xs font-semibold text-slate-400 tracking-wide uppercase">Recommendation</p>
-              <h2 className="text-2xl font-semibold text-white mt-0.5">
-                {config.label}
-              </h2>
-              <p className="text-sm text-slate-400 mt-1">{config.sublabel}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Key metrics — side by side */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="grid grid-cols-2 gap-4"
-        >
-          <div className="card-cedar flex flex-col items-center justify-center py-5">
-            <p className="text-xs text-slate-400 mb-2">Climate risk</p>
-            <RiskGauge score={assessment.climateRiskScore} />
-          </div>
-          <div className="card-cedar py-5 px-4">
-            <p className="text-xs text-slate-400 mb-3">Default probability</p>
-            <DefaultProbabilityBar
-              baseline={assessment.defaultProbabilityBaseline}
-              adjusted={assessment.defaultProbabilityAdjusted}
-            />
-          </div>
-        </motion.div>
-
-        {/* Context line */}
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <MapPin className="w-4 h-4" />
-          <span>{assessment.locationName || 'Location'}</span>
-          <span className="mx-1">·</span>
-          <DollarSign className="w-4 h-4" />
-          <span>${parseFloat(assessment.loanAmount || 0).toLocaleString()}</span>
-        </div>
-
-        {/* Actions required */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="card-cedar"
-        >
-          <h3 className="text-sm font-semibold text-slate-300 mb-3">Actions required</h3>
-          <ul className="space-y-2">
-            {actions.map((action, i) => (
-              <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="w-5 h-5 rounded border border-white/20 flex items-center justify-center text-slate-500 text-xs">□</span>
-                {action}
-              </li>
-            ))}
-          </ul>
-        </motion.div>
-
-        {/* Expandable: Climate breakdown + products */}
-        <div className="card-cedar">
-          <button
-            type="button"
-            onClick={() => setExpandAnalysis(!expandAnalysis)}
-            className="w-full flex items-center justify-between text-left"
+        <div className="space-y-8">
+          {/* Hero recommendation */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className={`card-cedar ${config.heroClass} py-6 mb-8`}
           >
-            <span className="text-sm font-semibold text-slate-300">
-              {expandAnalysis ? 'Hide' : 'View'} full analysis
-            </span>
-            {expandAnalysis ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-          </button>
-          {expandAnalysis && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 pt-4 border-t border-white/5 space-y-4"
+            <div className="flex items-start gap-3">
+              <Icon className={`w-8 h-8 ${config.iconColor} shrink-0`} />
+              <div>
+                <p className="text-xs font-semibold text-slate-400 tracking-wide uppercase">Recommendation</p>
+                <h2 className="text-2xl font-semibold text-white mt-0.5">
+                  {config.label}
+                </h2>
+                <p className="text-sm text-slate-400 mt-1">{config.sublabel}</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Key metrics — side by side */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="grid grid-cols-2 gap-4 mb-8"
+          >
+            <div className="card-cedar flex flex-col items-center justify-center py-5">
+              <p className="text-xs text-slate-400 mb-2">Climate risk</p>
+              <RiskGauge score={assessment.climateRiskScore} />
+            </div>
+            <div className="card-cedar py-5 px-4">
+              <p className="text-xs text-slate-400 mb-3">Default probability</p>
+              <DefaultProbabilityBar
+                baseline={assessment.defaultProbabilityBaseline}
+                adjusted={assessment.defaultProbabilityAdjusted}
+              />
+            </div>
+          </motion.div>
+
+          {/* Context line */}
+          <div className="flex items-center gap-2 text-sm text-slate-400 mb-8">
+            <MapPin className="w-4 h-4" />
+            <span>{assessment.locationName || 'Location'}</span>
+            <span className="mx-1">·</span>
+            <DollarSign className="w-4 h-4" />
+            <span>${parseFloat(assessment.loanAmount || 0).toLocaleString()}</span>
+          </div>
+
+          {/* Actions required */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="card-cedar mb-8"
+          >
+            <h3 className="text-sm font-semibold text-slate-300 mb-3">Actions required</h3>
+            <ul className="space-y-2">
+              {actions.map((action, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
+                  <span className="w-5 h-5 rounded border border-white/20 flex items-center justify-center text-slate-500 text-xs">□</span>
+                  {action}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Expandable: Climate breakdown + products */}
+          <div className="card-cedar mb-8">
+            <button
+              type="button"
+              onClick={() => setExpandAnalysis(!expandAnalysis)}
+              className="w-full flex items-center justify-between text-left"
             >
-              <div>
-                <h4 className="text-xs font-semibold text-slate-400 mb-2">Climate risk breakdown</h4>
-                <ClimateFactors factors={assessment.climateFactors} />
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
-                  <Umbrella className="w-3.5 h-3.5" />
-                  Recommended products
-                </h4>
-                <ul className="space-y-2">
-                  {assessment.products?.map((product, i) => (
-                    <li key={i} className="text-sm text-slate-300">
-                      <span className="font-medium text-white">{product.name}</span>
-                      <span className="text-slate-400"> — {product.description}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5" />
-                    AI Loan Officer Analysis
+              <span className="text-sm font-semibold text-slate-300">
+                {expandAnalysis ? 'Hide' : 'View'} full analysis
+              </span>
+              {expandAnalysis ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+            </button>
+            {expandAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 pt-4 border-t border-white/5 space-y-4"
+              >
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-400 mb-2">Climate risk breakdown</h4>
+                  <ClimateFactors factors={assessment.climateFactors} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+                    <Umbrella className="w-3.5 h-3.5" />
+                    Recommended products
                   </h4>
-                  {!aiAnalysis && !aiError && (
-                    <button
-                      onClick={generateAiAnalysis}
-                      disabled={aiLoading}
-                      className="text-xs px-2 py-1 rounded bg-slate-700/50 hover:bg-slate-600/50 disabled:opacity-50 text-slate-300 transition-colors flex items-center gap-1"
-                    >
-                      {aiLoading ? (
-                        <>
-                          <Loader className="w-3 h-3 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        'Generate'
-                      )}
-                    </button>
+                  <ul className="space-y-2">
+                    {assessment.products?.map((product, i) => (
+                      <li key={i} className="text-sm text-slate-300">
+                        <span className="font-medium text-white">{product.name}</span>
+                        <span className="text-slate-400"> — {product.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      AI Loan Officer Analysis
+                    </h4>
+                    {!aiAnalysis && !aiError && (
+                      <button
+                        onClick={generateAiAnalysis}
+                        disabled={aiLoading}
+                        className="text-xs px-2 py-1 rounded bg-slate-700/50 hover:bg-slate-600/50 disabled:opacity-50 text-slate-300 transition-colors flex items-center gap-1"
+                      >
+                        {aiLoading ? (
+                          <>
+                            <Loader className="w-3 h-3 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          'Generate'
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  {aiLoading && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader className="w-4 h-4 animate-spin text-slate-400" />
+                      <span className="text-sm text-slate-400 ml-2">Analyzing loan application...</span>
+                    </div>
+                  )}
+                  {aiError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+                      <p className="text-sm text-red-400">{aiError}</p>
+                    </div>
+                  )}
+                  {aiAnalysis && (
+                    <AiAnalysisDisplay analysis={aiAnalysis} />
                   )}
                 </div>
-                {aiLoading && (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader className="w-4 h-4 animate-spin text-slate-400" />
-                    <span className="text-sm text-slate-400 ml-2">Analyzing loan application...</span>
-                  </div>
-                )}
-                {aiError && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
-                    <p className="text-sm text-red-400">{aiError}</p>
-                  </div>
-                )}
-                {aiAnalysis && (
-                  <div className="bg-slate-800/40 border border-slate-700/50 rounded p-3 text-sm text-slate-300 space-y-3 whitespace-pre-wrap">
-                    {aiAnalysis}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
+          </div>
         </div>
       </main>
 
