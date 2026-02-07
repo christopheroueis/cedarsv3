@@ -1,31 +1,35 @@
 @import "tailwindcss";
-@import "./styles/design-system.css";
 
-/* Cedar Design System Override/Extension */
+/* ClimateCredit Design System */
 :root {
-  /* Extend Cedar tokens with app-specific colors */
-  --color-primary: var(--cedar-green);
-  --color-primary-light: var(--accent-teal);
-  --color-primary-dark: var(--cedar-green-light);
+  /* Primary - Deep teal for trust and sustainability */
+  --color-primary: #0d9488;
+  --color-primary-light: #14b8a6;
+  --color-primary-dark: #0f766e;
+
+  /* Secondary - Warm amber for alerts and highlights */
+  --color-secondary: #f59e0b;
+  --color-secondary-light: #fbbf24;
+  --color-secondary-dark: #d97706;
 
   /* Semantic colors */
-  --color-success: var(--risk-low);
-  --color-warning: var(--risk-medium);
-  --color-danger: var(--risk-high);
-  --color-info: var(--ai-confidence-high);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
 
   /* Neutral palette */
-  --color-slate-50: var(--gray-100);
-  --color-slate-100: var(--gray-200);
-  --color-slate-200: var(--gray-300);
-  --color-slate-700: var(--gray-700);
-  --color-slate-800: var(--gray-800);
-  --color-slate-900: var(--gray-950);
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
 
-  /* Risk score colors (already defined in design-system.css) */
-  --risk-low: var(--risk-low);
-  --risk-medium: var(--risk-medium);
-  --risk-high: var(--risk-high);
+  /* Risk score colors */
+  --risk-low: #10b981;
+  --risk-medium: #f59e0b;
+  --risk-high: #ef4444;
 }
 
 /* Dark mode */
@@ -47,11 +51,11 @@ html {
 }
 
 body {
-  font-family: var(--font-primary);
-  background: var(--neutral-slate);
-  color: var(--gray-100);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f1f5f9;
   min-height: 100vh;
-  line-height: var(--leading-normal);
+  line-height: 1.6;
 }
 
 /* Mobile-first touch targets */
